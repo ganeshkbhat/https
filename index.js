@@ -107,41 +107,41 @@ HTTPServer.prototype.shutdown = async function () {
 };
 
 // Example Usage:
-async function runServers() {
+async function runServers(callbacks, port, ipaddress, config) {
   // HTTP Server Example
   const httpServer = new HTTPServer();
 
-  httpServer.on('init', (config) => {
+  httpServer.on('init', callbacks["init"] || function (config) {
     console.log('HTTP Server initialized with config:', config);
   });
 
-  httpServer.on('connect', (socket) => {
+  httpServer.on('connect', callbacks["connect"] || function (socket) {
     console.log('HTTP Client connected:', socket.remoteAddress + ':' + socket.remotePort);
   });
 
-  httpServer.on('receive', (socket, data) => {
+  httpServer.on('receive', callbacks["receive"] || function (socket, data) {
     console.log('HTTP Received:', data.toString().substring(0, 200)); //first 200 chars
   });
 
-  httpServer.on('processMessage', async (socket, data, { req, res }) => {
+  httpServer.on('processMessage', callbacks["processMessage"] || async function (socket, data, { req, res }) {
     console.log('HTTP processing message:', data.toString().substring(0, 200));
     // You can access the req and res objects here
     res.setHeader('Content-Type', 'text/html');
     return '<h1>Hello, World!</h1><p>You sent: ' + data.toString().substring(0, 50) + '</p>';
   });
 
-  httpServer.on('respond', (socket, response, { req, res }) => {
+  httpServer.on('respond', callbacks["respond"] || function (socket, response, { req, res }) {
     console.log('HTTP sending response:', response.substring(0, 200));
   });
 
-  httpServer.onError((err, eventName, ...args) => {
+  httpServer.onError(callbacks["error"] || function (err, eventName, ...args) {
     console.error(`[HTTP Server] Error in event "${eventName}":`, err, ...args);
   });
 
-  await httpServer.init({ some: 'http config' });
-  await httpServer.listen(3000);
+  await httpServer.init(config || { some: 'http config' });
+  await httpServer.listen(port || 3000, ipaddress || "localhost");
 
-  console.log('Servers are running...');
+  console.log(`Servers are running at port ${port} and ${ipaddress}`);
 }
 
 // runServers();
@@ -242,79 +242,115 @@ HTTPClient.prototype.sendRequest = async function (options, body) {
 };
 
 // Example usage (same as before, but using the function implementations):
-async function runClients() {
+async function runClients(callbacks, config, data, options) {
 
+  // // HTTP Client Example
+  // const httpClient = new HTTPClient({
+  //   hostname: 'jsonplaceholder.typicode.com',
+  //   port: 443,
+  //   protocol: 'https:',
+  //   path: '/todos/1',
+  //   method: 'GET',
+  // });
 
-  // HTTP Client Example
-  const httpClient = new HTTPClient({
-    hostname: 'jsonplaceholder.typicode.com',
+  // httpClient.on('connect', callbacks["connect"] || function (socket) {
+  //   console.log('HTTP Client: Socket connected.');
+  // });
+
+  // httpClient.on('send', callbacks["send"] || function (socket, message) {
+  //   console.log('HTTP Client: Sending request:', message.options.method, message.options.path);
+  //   if (message.body) {
+  //     console.log('HTTP Client: Sending body:', message.body);
+  //   }
+  // });
+
+  // httpClient.on('receive', callbacks["receive"] || function (socket, data) {
+  //   // console.log('HTTP Client: Received data chunk:', data.toString());
+  // });
+
+  // httpClient.on('disconnect', callbacks["disconnect"] || function (socket) {
+  //   console.log('HTTP Client: Socket disconnected.');
+  // });
+
+  // httpClient.onError(callbacks["error"] || function (err, eventName, ...args) {
+  //   console.error(`[HTTP Client] Error in event "${eventName}":`, err, ...args);
+  // });
+
+  // try {
+  //   const response = await httpClient.sendRequest();
+  //   console.log('HTTP Client: Response Status Code:', response.statusCode);
+  //   console.log('HTTP Client: Response Headers:', response.headers);
+  //   console.log('HTTP Client: Response Data:', response.data);
+  //   await httpClient.disconnect();
+  // } catch (error) {
+  //   console.error('HTTP Client request failed:', error);
+  // }
+
+  // Example POST request
+  // const postClient = new HTTPClient(config || {
+  //   hostname: 'jsonplaceholder.typicode.com',
+  //   port: 443,
+  //   protocol: 'https:',
+  //   path: '/posts',
+  //   method: 'POST',
+  //   headers: {
+  //     'Content-Type': 'application/json',
+  //   },
+  //   ...config
+  // });
+
+  const postClient = new HTTPClient(config || {
     port: 443,
     protocol: 'https:',
-    path: '/todos/1',
-    method: 'GET',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    ...config
   });
 
-  httpClient.on('connect', (socket) => {
+  httpClient.on('connect', callbacks["connect"] || function (socket) {
     console.log('HTTP Client: Socket connected.');
   });
 
-  httpClient.on('send', (socket, message) => {
+  httpClient.on('send', callbacks["send"] || function (socket, message) {
     console.log('HTTP Client: Sending request:', message.options.method, message.options.path);
     if (message.body) {
       console.log('HTTP Client: Sending body:', message.body);
     }
   });
 
-  httpClient.on('receive', (socket, data) => {
+  httpClient.on('receive', callbacks["receive"] || function (socket, data) {
     // console.log('HTTP Client: Received data chunk:', data.toString());
   });
 
-  httpClient.on('disconnect', (socket) => {
+  httpClient.on('disconnect', callbacks["disconnect"] || function (socket) {
     console.log('HTTP Client: Socket disconnected.');
   });
 
-  httpClient.onError((err, eventName, ...args) => {
+  httpClient.onError(callbacks["error"] || function (err, eventName, ...args) {
     console.error(`[HTTP Client] Error in event "${eventName}":`, err, ...args);
   });
 
   try {
-    const response = await httpClient.sendRequest();
-    console.log('HTTP Client: Response Status Code:', response.statusCode);
-    console.log('HTTP Client: Response Headers:', response.headers);
-    console.log('HTTP Client: Response Data:', response.data);
-    await httpClient.disconnect();
-  } catch (error) {
-    console.error('HTTP Client request failed:', error);
-  }
-
-  // Example POST request
-  const postClient = new HTTPClient({
-    hostname: 'jsonplaceholder.typicode.com',
-    port: 443,
-    protocol: 'https:',
-    path: '/posts',
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  try {
-    const postData = JSON.stringify({
-      title: 'foo',
-      body: 'bar',
-      userId: 1,
-    });
-    const postResponse = await postClient.sendRequest({}, postData);
+    // const postData = JSON.stringify(data || {
+    //   title: 'foo',
+    //   body: 'bar',
+    //   userId: 1,
+    // });
+    const postData = JSON.stringify(data || {});
+    const postResponse = await postClient.sendRequest(options || {}, postData);
     console.log('\nHTTP Client (POST) Response Status Code:', postResponse.statusCode);
     console.log('HTTP Client (POST) Response Data:', postResponse.data);
     await postClient.disconnect();
   } catch (error) {
     console.error('HTTP Client (POST) request failed:', error);
   }
+
 }
 
 // runClients();
 
-module.exports = { HTTPClient, HTTPServer };
+module.exports = { HTTPClient, HTTPServer, runServers, runClients };
+
 
